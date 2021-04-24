@@ -1,39 +1,6 @@
 clear; clc; clf;
 delete(findall(0,'Type','figure'))
 
-%% Generating the WS complex network
-% Ab,Ba,Cal,Cam,Em,Fr,La,Li,Lo,Ma,Mo,PAB,PAT,Pi,Pu,Sa,Si,To,Um,VA,Ve
-k_measure = [38 12 10 14 90 40 ...
-    19 86 104 56 23 66 ...
-    99 88 18 13 9 45 24 110 65]; 
-m = 18; 
-K = length(k_measure);
-
-% P = zeros(1,K);
-% for k = 1:K
-%     P(k) = m^(k_measure(k)-m)/factorial(k_measure(k)-m)*exp(-m);
-% end
-% for k = m:20
-%     Q(k) = m^(k-m)/factorial(k-m)*exp(-m);
-% end
-% 
-% figure
-% subplot(2,1,1)
-% plot(k_measure, P, 'color',[0.2 0.5 0.9],'LineWidth',2); hold on;
-% set(gca,'FontSize',14);
-% title('Watts-Strogatz Discrete Network');
-% xlabel('Connectivity measure','FontSize',14);
-% ylabel('Probability distribution','FontSize',14);
-% grid on; hold off;
-% 
-% subplot(2,1,2)
-% plot(Q, 'color',[0.9 0.5 0.2],'LineWidth',2); hold on;
-% set(gca,'FontSize',14);
-% title('Watts-Strogatz Full Plot');
-% xlabel('Connectivity measure','FontSize',14);
-% ylabel('Probability distribution','FontSize',14);
-% grid on; hold off;
-
 %% Import data from text file
 % Script for importing data from the following text file:
 %
@@ -62,42 +29,52 @@ opts = setvaropts(opts, ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6", "casi_d
 opts = setvaropts(opts, ["Var1", "Var2", "Var3", "Var4", "Var5", "Var6", "casi_da_sospetto_diagnostico", "casi_da_screening", "casi_testati", "Var21"], "EmptyFieldRule", "auto");
 
 % Import the data
-dpcregioni = readtable("/Users/leonardo/Google Drive/PhD/MATLAB/Research/dpc_regioni.csv", opts);
+dpcregioni = readtable("/Users/leonardostella/Google Drive/PhD/MATLAB/Research/COVID-19 SIAM/dpc_regioni.csv", opts);
 
 % Clear temporary variables
 clear opts
 
 
 %% Data per region
-symptomatic_hospitalized = zeros(21,187);
-asymptomatic_isolated = zeros(21,187);
-new_infected = zeros(21,187);
+symptomatic_hospitalized = zeros(21,225);
+asymptomatic_isolated = zeros(21,225);
+new_infected = zeros(21,225);
 
-cumulative_infected = zeros(21,187);
-cumulative_recovered = zeros(21,187);
-cumulative_deaths = zeros(21,187);
+cumulative_infected = zeros(21,225);
+cumulative_recovered = zeros(21,225);
+cumulative_deaths = zeros(21,225);
+
+tot_positive = zeros(21,225);
+var_tot_positive = zeros(21,225);
 for k = 1:21
-    symptomatic_hospitalized(k,:) = table2array(dpcregioni(k:21:3907+k,3));
-    asymptomatic_isolated(k,:) = table2array(dpcregioni(k:21:3907+k,4));
-    new_infected(k,:) = table2array(dpcregioni(k:21:3907+k,7));
+    symptomatic_hospitalized(k,:) = table2array(dpcregioni(k:21:4724+k,3));
+    asymptomatic_isolated(k,:) = table2array(dpcregioni(k:21:4724+k,4));
+    new_infected(k,:) = table2array(dpcregioni(k:21:4724+k,7));
     
-    cumulative_infected(k,:) = table2array(dpcregioni(k:21:3907+k,12));
-    cumulative_recovered(k,:) = table2array(dpcregioni(k:21:3907+k,7));
-    cumulative_deaths(k,:) = table2array(dpcregioni(k:21:3907+k,8));
+    cumulative_infected(k,:) = table2array(dpcregioni(k:21:4724+k,12));
+    cumulative_recovered(k,:) = table2array(dpcregioni(k:21:4724+k,8));
+    cumulative_deaths(k,:) = table2array(dpcregioni(k:21:4724+k,9));
+    
+    tot_positive(k,:) = table2array(dpcregioni(k:21:4724+k,5));
+    var_tot_positive(k,:) = table2array(dpcregioni(k:21:4724+k,6));
 end
 
 %%  Parameters
 % setting general parameters for simulations
-T = 240; dt = 1; % time horizon & time step 220 days is until 30 September
+T = 270; dt = 1; % time horizon & time step 220 days is until 30 September
 gamma = 0.499522798579201676; lambda = 0.59952; % gamma and lambda in SAIR
 sigma = 0.05050505235642550742; mu = 0.1504; % sigma and mu in SAIR
 alpha = 0.03351722405987804617;% alpha in SAIR
 
-%k1 = [0.995020971104487523 .92]; k2 = [0.7505631974143128 .32];
-
-%R0 = (k1*g*m+k2*l*a)/((s+a)*m) % about 2.38
-
 N = 60*10^6;
+
+%% Generating the WS complex network
+% Ab,Ba,Cal,Cam,Em,Fr,La,Li,Lo,Ma,Mo,PAB,PAT,Pi,Pu,Sa,Si,To,Um,VA,Ve
+k_measure = [38 12 10 14 90 40 ...
+    19 86 104 56 23 66 ...
+    99 88 18 13 9 45 24 110 65]; 
+m = 18; 
+K = length(k_measure);
 
 % Population:
 % Ab,Ba,Cal,Cam,Em,Fr,La,Li,Lo,Ma,Mo,PAB,PAT,Pi,Pu,Sa,Si,To,Um,VA,Ve
@@ -108,26 +85,75 @@ regions = {'Abruzzo','Basilicata','Calabria','Campania','Emilia-Romagna','Friuli
     'Lazio','Liguria','Lombardia','Marche','Molise','P.A. Bolzano','P.A. Trento', 'Piemonte', ...
     'Puglia','Sardegna','Sicilia','Toscana','Umbria',"Valle d'Aosta",'Veneto'}';
 
-figure
-hB=bar(k_c); grid on;
-% hAx=gca;            % get a variable for the current axes handle
-% hAx.XTickLabel=regions; % label the ticks
-% hT=[];
-%set(gca,'xticklabel',regions)
-%xtickangle(45);
-% for i=1:length(hB)  % iterate over number of bar objects
-%   hT=[hT text(hB(i).XData+hB(i).XOffset,hB(i).YData,num2str(hB(i).YData.','%.3f'), ...
-%                           'VerticalAlignment','bottom','horizontalalign','center')];
+% P = zeros(1,K);
+% for k = 1:K
+%     P(k) = m^(k_measure(k)-m)/factorial(k_measure(k)-m)*exp(-m);
 % end
+% for k = m:20
+%     Q(k) = m^(k-m)/factorial(k-m)*exp(-m);
+% end
+% 
+% figure
+% subplot(2,1,1)
+% plot(k_measure, P, 'color',[0.2 0.5 0.9],'LineWidth',2); hold on;
+% set(gca,'FontSize',14);
+% title('Watts-Strogatz Discrete Network');
+% xlabel('Connectivity measure','FontSize',14);
+% ylabel('Probability distribution','FontSize',14);
+% grid on; hold off;
+% 
+% subplot(2,1,2)
+% plot(Q, 'color',[0.9 0.5 0.2],'LineWidth',2); hold on;
+% set(gca,'FontSize',14);
+% title('Watts-Strogatz Full Plot');
+% xlabel('Connectivity measure','FontSize',14);
+% ylabel('Probability distribution','FontSize',14);
+% grid on; hold off;
 
-psi_1 = k_measure./150;%[0.05 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.6 0.7];
-psi_2 = (k_measure./150)*0.5;
+% figure
+% hB=bar(k_c); grid on;
+% % hAx=gca;            % get a variable for the current axes handle
+% % hAx.XTickLabel=regions; % label the ticks
+% % hT=[];
+% %set(gca,'xticklabel',regions)
+% %xtickangle(45);
+% % for i=1:length(hB)  % iterate over number of bar objects
+% %   hT=[hT text(hB(i).XData+hB(i).XOffset,hB(i).YData,num2str(hB(i).YData.','%.3f'), ...
+% %                           'VerticalAlignment','bottom','horizontalalign','center')];
+% % end
+
+psi_1 = k_measure./52.25;%[0.05 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.6 0.7];
+psi_2 = (k_measure./52.25)*0.5;
 
 %psi_1 = ones(K).*.99;%[0.62 0.35 0.35 0.42 0.97 0.60 0.58 0.98 0.99 0.58 0.55 0.56 0.56 0.92 0.61 0.64 0.83 0.62 0.55 0.65 0.98];
 %psi_2 = psi_1.*0.6;%[0.022*7 0.009*7 0.032*7 0.096*7 0.85 0.02*7 0.098*7 0.65 0.95 0.5 0.005*7 0.009*7 0.009*7 0.072*7 0.068*7 0.027*7 0.083*7 0.062*7 0.015*7 0.002*7 0.081*7];
 
-mm = 0.8;
+m = sum(k_measure(:).*k_classes(:));
 R0 = zeros(k,T);
+
+% Rt calculated
+tot_positiveMM = zeros(k,225); var_tot_positiveMM = zeros(k,225);
+KK = zeros(k,225); RTT = zeros(k,225); RTTM = zeros(1,225);
+for t = 1:225
+    for k = 1:21
+        % Calculating the moving mean value   
+        tot_positiveMM(k,t) = movmean(tot_positive(k,t),7);
+        var_tot_positiveMM(k,t) = movmean(var_tot_positive(k,t),7);
+        % KK=log((varMM+PositiviMM)./PositiviMM);
+        KK(k,t) = log((var_tot_positiveMM(k,t)+tot_positiveMM(k,t))./tot_positiveMM(k,t));
+        % RTT=exp(KK*7);
+        RTT(k,t) = exp(KK(k,t)*5);
+        
+        RTTM(t) = RTTM(t) + RTT(k,t);
+    end
+    RTTM(t) = RTTM(t)/21;
+end
+
+figure
+plot(RTT(9,:),'LineWidth',1.5); hold on;
+%plot(RTT(4,:),'LineWidth',1.5,'r'); 
+plot(RTTM,'LineWidth',2.5,'color',[0.2 0.5 0.9]);
+hold off;
 
 %% DYNAMICS
 S = zeros(K,T); A = zeros(K,T); I = zeros(K,T); R = zeros(K,T);
@@ -143,7 +169,7 @@ for k=1:K
     S(k,1) = 1 - A(k,1) - I(k,1) - R(k,1);
     Atot(k,1) = A(k,1); 
     Itot(k,1) = I(k,1); 
-    R0(k,1) = (psi_1(k)*gamma*mu+psi_2(k)*lambda*alpha)/(mm*((sigma+alpha)*mu));
+    R0(k,1) = (psi_1(k)*gamma*mu+psi_2(k)*lambda*alpha)/(m*((sigma+alpha)*mu));
 end
 Atot_strict(1) = A(4,1); Itot_strict(1) = I(4,1);
 
@@ -162,16 +188,113 @@ theta_2(1) = theta_2(1)/(2*m);
 for t = 2:T
     
     if t > 10 && t < 50
-        psi_1 = psi_1 - psi_1*0.04940; 
+        psi_1 = psi_1 - psi_1*0.05140; 
         psi_2 = psi_2 - psi_2*0.1180;
-    elseif t > 100 && t < 170
-        psi_1 = psi_1 + psi_1*0.010940; 
-        psi_2 = psi_2 + psi_2*0.009380;
-        mm = mm - 0.0045;
-    elseif t >= 170
+        
+        psi_1(4) = psi_1(4) - psi_1(4)*0.003540;
+        psi_2(4) = psi_2(4) - psi_2(4)*0.001380;
+        
+        psi_1(9) = psi_1(9) + psi_1(9)*0.006540;
+        psi_2(9) = psi_2(9) + psi_2(9)*0.001380;
+        
+        
+    elseif t > 100 && t < 180
+        psi_1(1) = psi_1(1) + psi_1(1)*0.006140;
+        psi_2(1) = psi_2(1) + psi_2(1)*0.004380;
+        
+        if t < 165
+            psi_1(2) = psi_1(2) + psi_1(2)*0.008940;
+            psi_2(2) = psi_2(2) + psi_2(2)*0.008380;
+        else
+            psi_1(2) = psi_1(2) + psi_1(2)*0.118940;
+            psi_2(2) = psi_2(2) + psi_2(2)*0.008380;
+        end
+        
+        if t < 155
+            psi_1(3) = psi_1(3) + psi_1(3)*0.006940;
+            psi_2(3) = psi_2(3) + psi_2(3)*0.003380;
+        else
+            psi_1(3) = psi_1(3) + psi_1(3)*0.036940;
+            psi_2(3) = psi_2(3) + psi_2(3)*0.008380;
+        end
+        
+        if t < 165
+            psi_1(4) = psi_1(4) + psi_1(4)*0.005980;
+            psi_2(4) = psi_2(4) + psi_2(4)*0.003380;
+        else
+            psi_1(4) = psi_1(4) + psi_1(4)*0.185940;
+            psi_2(4) = psi_2(4) + psi_2(4)*0.008380;
+        end
+        
+        psi_1(5) = psi_1(5) + psi_1(5)*0.006940;
+        psi_2(5) = psi_2(5) + psi_2(5)*0.004380;
+        
+        psi_1(6) = psi_1(6) + psi_1(6)*0.004940;
+        psi_2(6) = psi_2(6) + psi_2(6)*0.008380;
+        
+        if t < 160
+            psi_1(7) = psi_1(7) + psi_1(7)*0.002940;
+            psi_2(7) = psi_2(7) + psi_2(7)*0.000380;
+        else
+            psi_1(7) = psi_1(7) + psi_1(7)*0.122940;
+            psi_2(7) = psi_2(7) + psi_2(7)*0.008380;
+        end
+        
+        psi_1(8) = psi_1(8) + psi_1(8)*0.010940;
+        psi_2(8) = psi_2(8) + psi_2(8)*0.002380;
+        
+        psi_1(9) = psi_1(9) + psi_1(9)*0.006540;
+        psi_2(9) = psi_2(9) + psi_2(9)*0.002380;
+        
+        psi_1(10) = psi_1(10) + psi_1(10)*0.010940;
+        psi_2(10) = psi_2(10) + psi_2(10)*0.008380;
+        
+        psi_1(11) = psi_1(11) + psi_1(11)*0.010940;
+        psi_2(11) = psi_2(11) + psi_2(11)*0.008380;
+        
+        psi_1(12) = psi_1(12) + psi_1(12)*0.010940;
+        psi_2(12) = psi_2(12) + psi_2(12)*0.008380;
+        
+        psi_1(13) = psi_1(13) + psi_1(13)*0.012540;
+        psi_2(13) = psi_2(13) + psi_2(13)*0.008380;
+        
+        psi_1(14) = psi_1(14) + psi_1(14)*0.008940;
+        psi_2(14) = psi_2(14) + psi_2(14)*0.005380;
+        
+        psi_1(15) = psi_1(15) + psi_1(15)*0.012940;
+        psi_2(15) = psi_2(15) + psi_2(15)*0.008380;
+        
+        if t < 150
+            psi_1(16) = psi_1(16) + psi_1(16)*0.010940;
+            psi_2(16) = psi_2(16) + psi_2(16)*0.008380;
+        else
+            psi_1(16) = psi_1(16) + psi_1(16)*0.080940;
+            psi_2(16) = psi_2(16) + psi_2(16)*0.008380;
+        end
+        
+        if t < 150
+            psi_1(17) = psi_1(17) + psi_1(17)*0.010940;
+            psi_2(17) = psi_2(17) + psi_2(17)*0.008380;
+        else
+            psi_1(17) = psi_1(17) + psi_1(17)*0.070940;
+            psi_2(17) = psi_2(17) + psi_2(17)*0.008380;
+        end
+        
+        psi_1(18) = psi_1(18) + psi_1(18)*0.010940;
+        psi_2(18) = psi_2(18) + psi_2(18)*0.008380;
+        
+        psi_1(19) = psi_1(19) + psi_1(19)*0.010940;
+        psi_2(19) = psi_2(19) + psi_2(19)*0.008380;
+        
+        psi_1(20) = psi_1(20) + psi_1(20)*0.010940;
+        psi_2(20) = psi_2(20) + psi_2(20)*0.008380;
+        
+        psi_1(21) = psi_1(21) + psi_1(21)*0.010940;
+        psi_2(21) = psi_2(21) + psi_2(21)*0.008380;
+  
+    elseif t >= 170 && t < 170
         psi_1 = psi_1 + psi_1*0.005940; 
         psi_2 = psi_2 + psi_2*0.003380;
-        mm = mm - 0.0045;
     end
     
     for k = 1:K
@@ -208,7 +331,7 @@ for t = 2:T
         %dR(t) = S(t) + A(t) + I(t);
         R(k,t) = 1 - S(k,t) - A(k,t) - I(k,t);
         
-        R0(k,t) = (psi_1(k)*gamma*mu+psi_2(k)*lambda*alpha)/(mm*((sigma+alpha)*mu));
+        R0(k,t) = (psi_1(k)*gamma*mu+psi_2(k)*lambda*alpha)/(m*((sigma+alpha)*mu));
         
         % calculating theta_1 and theta_2
         
@@ -236,8 +359,6 @@ end
 %     0 alpha -mu 0;
 %     0 sigma mu 0];
 % det(X)
-
-
 
 % ====================================================================
 % =======================GRADE/POPULATION=============================
@@ -322,9 +443,9 @@ end
 %% Seroprevalence per Region
 fig = figure('Renderer', 'painters', 'Position', [10 10 1200 1000]);
 
-titles = ['Abruzzo','Basilicata','Calabria','Campania','Emilia-Romagna','Friuli Venezia Giulia', ...
-    'Lazio','Liguria','Lombardia','Marche','Molise','P.A. Bolzano','P.A. Trento', 'Piemonte', ...
-    'Puglia','Sardegna','Sicilia','Toscana','Umbria',"Valle d'Aosta",'Veneto'];
+titles = ['Abruzzo','Basilicata','Calabria','Campania','Emilia-Romagna','Friuli-Venezia Giulia', ...
+    'Lazio','Liguria','Lombardy','Marche','Molise','A.P. Bolzano','A.P. Trento', 'Piedmont', ...
+    'Apulia','Sardinia','Sicily','Tuscany','Umbria',"Aosta Valley",'Veneto'];
 
 t = datetime(2020,2,24) + caldays(0:T-1);
 colormap hsv(21)
@@ -335,7 +456,7 @@ for k = 1:K
     %plot(t(1:T),Itot(k,1:T).*pop(1),'-','color',[0.2 0.5 0.9][0.69 0.3 0.69],'LineWidth',3); hold on;
     %plot(t(1:T),Atot(k,1:T).*pop(1),'-','color',[0.56 0.86 0.36],'LineWidth',3);
     plot(t(1:T),Atot(k,1:T).*(N*k_classes(k))+Itot(k,1:T).*(N*k_classes(k)),'-','Color',jetcustom(k,:),'LineWidth',2); hold on;
-    plot(t(1:187),cumulative_infected(k,:),'-.','Color',[0.8 0 0.8],'LineWidth',1.5);
+    plot(t(1:225),cumulative_infected(k,:),'-.','Color',[0.8 0 0.8],'LineWidth',1.5);
     total = round(1.2*(Atot(k,T).*(N*k_classes(k))+Itot(k,T).*(N*k_classes(k))));
     % Fitting the seroprevalence data with exponential
 %     x=(1:T)';
@@ -349,7 +470,7 @@ for k = 1:K
     %xl.LabelHorizontalAlignment = 'center';
     %xl.FontSize = 14;
     %plot(1:T,confirmed_hubei,'r:^');
-    xlim([datetime(2020,2,24) datetime(2020,10,30)]);
+    xlim([datetime(2020,2,24) datetime(2020,11,30)]);
     ylim([0 total]);
     ax = gca;
     ax.YAxis.TickValues = 0:round(total/3):total;
@@ -391,7 +512,7 @@ k = 4; % Campania
 % Calculating the multiplier: x8
 % (N*k_classes(k))*0.007
 % cumulative_infected(k,172)
-x=(1:187)';
+x=(1:225)';
 y=(cumulative_infected(k,:).*8)';
 g = fittype('a-b*exp(-c*x)');
 f0 = fit(x,y,g,'StartPoint',[[ones(size(x)), -exp(-x)]\y; 1]);
@@ -400,15 +521,15 @@ xx = linspace(1,T,T);
 % Creating the actual plot
 t = datetime(2020,2,24) + caldays(0:T-1);
 plot(t(1:T),Atot(k,1:T).*(N*k_classes(k))+Itot(k,1:T).*(N*k_classes(k)),':','color',[0.69 0.3 0.69],'LineWidth',3); hold on;
-plot(t(1:T),Atot_strict(1:T).*(N*k_classes(k))+Itot_strict(1:T).*(N*k_classes(k)),'-','color',[0.56 0.86 0.36],'LineWidth',2);
-stem(t(1:187),cumulative_infected(k,:),'color',[0.69 0.3 0.69]);
+%plot(t(1:T),Atot_strict(1:T).*(N*k_classes(k))+Itot_strict(1:T).*(N*k_classes(k)),'-','color',[0.56 0.86 0.36],'LineWidth',2);
+stem(t(1:225),cumulative_infected(k,:),'color',[0.69 0.3 0.69]);
 %plot(t(1:T),f0(xx),'-.','color',[0.99 0.3 0.3],'LineWidth',2);
 xl = xline(datetime(2020,3,9),'-.','Lockdown','color','black','LineWidth',2);
 xl.LabelVerticalAlignment = 'middle';
 xl.LabelHorizontalAlignment = 'center';
 xl.FontSize = 14;
 %plot(1:T,confirmed_hubei,'r:^');
-xlim([datetime(2020,2,24) datetime(2020,10,15)]);
+xlim([datetime(2020,2,24) datetime(2020,11,15)]);
 ylim([0 4*10^4]);
 xtickangle(45);
 xtickformat('MMM-dd');
@@ -416,21 +537,74 @@ xtickformat('MMM-dd');
 set(gca,'FontSize',14);
 ax = gca;
 ax.XAxis.TickValues = t(1:14:T);
-title('Impact of Regional Restrictions in Campania');
+title('Impact of Tourism in Campania');
 xlabel('Date','FontSize',16);
 ylabel('Number of cases','FontSize',16);
 set(gca,'DefaultTextFontSize',14);
-h = legend('Model: Total Infected','Model: Delayed Return to School','Data\_Cumulative\_Infected','Location','northwest');
+h = legend('Model: Total Infected','Data\_Cumulative\_Infected','Location','northwest');
 grid on;
 % Creating a subplot inside
 axes('Position',[.7 .71 .2 .2])
 box on
-plot(t(1:T),R0(k,:),'-','color',[0.2 0.5 0.9],'LineWidth',2);
-xlim([datetime(2020,2,24) datetime(2020,10,30)]);
-ylim([0 1.5]);
+plot(t(1:225),RTT(k,1:225),'-','color',[0.2 0.5 0.9],'LineWidth',1.5);
+xlim([datetime(2020,3,10) datetime(2020,10,8)]);
+ylim([0 3]);
+ax = gca;
+ax.YAxis.TickValues = [0 1 2 3];
 xlabel('Date','FontSize',12);
-ylabel('Value of R_0','FontSize',12);
+ylabel('R_t','FontSize',12);
 grid on; hold off;
+
+figure
+
+% Fitting the seroprevalence data with exponential
+k = 9; % Lombardia
+% Calculating the multiplier: x8
+% (N*k_classes(k))*0.007
+% cumulative_infected(k,172)
+x=(1:225)';
+y=(cumulative_infected(k,:).*8)';
+g = fittype('a-b*exp(-c*x)');
+f0 = fit(x,y,g,'StartPoint',[[ones(size(x)), -exp(-x)]\y; 1]);
+xx = linspace(1,T,T);
+
+% Creating the actual plot
+t = datetime(2020,2,24) + caldays(0:T-1);
+plot(t(1:T),Atot(k,1:T).*(N*k_classes(k))+Itot(k,1:T).*(N*k_classes(k)),':','color',[0.69 0.3 0.69],'LineWidth',3); hold on;
+%plot(t(1:T),Atot_strict(1:T).*(N*k_classes(k))+Itot_strict(1:T).*(N*k_classes(k)),'-','color',[0.56 0.86 0.36],'LineWidth',2);
+stem(t(1:225),cumulative_infected(k,:),'color',[0.69 0.3 0.69]);
+%plot(t(1:T),f0(xx),'-.','color',[0.99 0.3 0.3],'LineWidth',2);
+xl = xline(datetime(2020,3,9),'-.','Lockdown','color','black','LineWidth',2);
+xl.LabelVerticalAlignment = 'middle';
+xl.LabelHorizontalAlignment = 'center';
+xl.FontSize = 14;
+%plot(1:T,confirmed_hubei,'r:^');
+xlim([datetime(2020,2,24) datetime(2020,11,15)]);
+ylim([0 4*10^5]);
+xtickangle(45);
+xtickformat('MMM-dd');
+%set(gca,'XTick', 1:size(t),'XTickLabel',t,'FontSize',14);
+set(gca,'FontSize',14);
+ax = gca;
+ax.XAxis.TickValues = t(1:14:T);
+title('Impact of Tourism in Lombardy');
+xlabel('Date','FontSize',16);
+ylabel('Number of cases','FontSize',16);
+set(gca,'DefaultTextFontSize',14);
+h = legend('Model: Total Infected','Data\_Cumulative\_Infected','Location','northwest');
+grid on;
+% Creating a subplot inside
+axes('Position',[.7 .71 .2 .2])
+box on
+plot(t(1:225),RTT(k,1:225),'-','color',[0.2 0.5 0.9],'LineWidth',1.5);
+xlim([datetime(2020,3,10) datetime(2020,10,8)]);
+ylim([0 3]);
+ax = gca;
+ax.YAxis.TickValues = [0 1 2 3];
+xlabel('Date','FontSize',12);
+ylabel('R_t','FontSize',12);
+grid on; hold off;
+
 
 
 %% Individual arrays: cases per region
